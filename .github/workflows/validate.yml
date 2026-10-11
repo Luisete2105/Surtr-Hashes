@@ -1,0 +1,23 @@
+name: Validate hashes
+
+on:
+  pull_request:
+    paths:
+      - "hashes.json"
+      - "tools/validate_hashes.py"
+      - ".github/workflows/validate.yml"
+  push:
+    branches: [main]
+    paths:
+      - "hashes.json"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Validate hashes.json
+        run: python tools/validate_hashes.py hashes.json

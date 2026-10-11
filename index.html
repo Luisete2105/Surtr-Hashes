@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surtr Hash Verifier</title>
+<style>
+  :root {
+    --bg: #10141b;
+    --card: #182030;
+    --card-2: #1f2a3d;
+    --border: #2b3850;
+    --text: #e7edf7;
+    --muted: #93a2bd;
+    --accent: #4f9dff;
+    --ok: #2fbf71;
+    --warn: #e7b23c;
+    --bad: #ef5350;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 16px 80px;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  }
+  main { max-width: 980px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 26px; }
+  h2 { margin: 0 0 14px; font-size: 17px; }
+  .sub { margin: 0 0 24px; color: var(--muted); }
+  .muted { color: var(--muted); font-size: 13px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 20px;
+  }
+  .row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+  .row:last-child { margin-bottom: 0; }
+  input[type="text"], input[type="date"], textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card-2);
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+  }
+  input[type="text"], input[type="date"] { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
+  input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  textarea { resize: vertical; }
+  button {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: var(--accent);
+    color: #04101f;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button:hover { filter: brightness(1.08); }
+  button.ghost {
+    background: transparent;
+    color: var(--muted);
+    border-color: var(--border);
+    font-weight: 500;
+  }
+  button.ghost:hover { color: var(--text); border-color: var(--accent); filter: none; }
+  button.danger { background: transparent; color: var(--bad); border-color: var(--border); font-weight: 500; }
+  button.danger:hover { border-color: var(--bad); }
+  button.tiny { padding: 4px 9px; font-size: 12px; }
+  .fileBtn {
+    display: inline-block;
+    padding: 10px 14px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .fileBtn:hover { border-color: var(--accent); color: var(--text); }
+  .fileBtn input { display: none; }
+  .result {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card-2);
+  }
+  .result.known { border-color: var(--ok); }
+  .result.unknown { border-color: var(--bad); }
+  .result.invalid { border-color: var(--warn); }
+  .result p { margin: 0 0 8px; font-weight: 600; }
+  .result dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 2px 14px;
+    margin: 0 0 10px;
+  }
+  .result dt { color: var(--muted); }
+  .result dd { margin: 0; word-break: break-word; }
+  .result a { color: var(--accent); }
+  code {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: #0c1220;
+    border: 1px solid var(--border);
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: 12px;
+    word-break: break-all;
+  }
+  mark { background: var(--accent); color: #04101f; border-radius: 3px; padding: 0 2px; }
+  .matchHeading { color: var(--muted); font-size: 13px; margin: 4px 0 8px; }
+  .match {
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    margin-top: 10px;
+  }
+  .matchHead { margin-bottom: 8px; }
+  .matchHead strong { color: var(--text); }
+  .metaRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tableWrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td {
+    text-align: left;
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+  td.hash { font-family: ui-monospace, Consolas, monospace; white-space: nowrap; }
+  td.actions { white-space: nowrap; }
+  td.actions button { margin-left: 6px; }
+  .empty { color: var(--muted); padding: 10px 0; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+  .grid > label, .grid > .full {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .grid label .row, .grid .full .row { margin-bottom: 0; }
+  .full { grid-column: 1 / -1; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--card-2);
+    border: 1px solid var(--border);
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+  }
+  .chip button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .chip button:hover { color: var(--bad); filter: none; }
+  .errors {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--bad);
+    background: rgba(239, 83, 80, 0.08);
+    color: #ffd9d8;
+    font-size: 13px;
+  }
+  .errors ul { margin: 6px 0 0; padding-left: 18px; }
+  .actions { margin-top: 16px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Surtr Hash Verifier</h1>
+  <p class="sub">Check whether a Surtr build hash is a known release or a verified community fork, and manage the registry.</p>
+
+  <section class="card">
+    <h2>Verify a hash</h2>
+    <div class="row">
+      <input id="hashInput" type="text" placeholder="Type a SHA-256 to search as you type (or paste the full hash)" autocomplete="off" spellcheck="false">
+      <button id="checkBtn">Check</button>
+    </div>
+    <div class="row">
+      <label class="fileBtn">
+        or choose the compiled Surtr file to hash
+        <input id="fileInput" type="file">
+      </label>
+    </div>
+    <div id="result"></div>
+  </section>
+
+  <section class="card">
+    <div class="metaRow">
+      <span id="meta" class="muted">Loading registry&hellip;</span>
+      <button id="reloadBtn" class="ghost tiny">Reload list</button>
+    </div>
+    <div class="toolbar">
+      <button id="newBtn">+ New entry</button>
+      <button id="loadBtn" class="ghost">Load file&hellip;</button>
+      <input type="file" id="loadFileInput" accept=".json,application/json" hidden>
+      <button id="downloadBtn" class="ghost">Download hashes.json</button>
+      <button id="copyBtn" class="ghost">Copy JSON</button>
+    </div>
+    <div class="tableWrap">
+      <table id="table">
+        <thead>
+          <tr>
+            <th>Surtr</th><th>Name</th><th>Nickname</th><th>Date</th>
+            <th>Approved by</th><th>Note</th><th>Hash</th><th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="empty" class="empty" hidden>No hashes registered yet. Use "+ New entry".</div>
+  </section>
+
+  <section class="card" id="editorCard" hidden>
+    <h2 id="editorTitle">New entry</h2>
+    <form id="entryForm" autocomplete="off">
+      <div class="grid">
+        <label class="full">SHA-256
+          <div class="row">
+            <input type="text" id="f_sha256" spellcheck="false" placeholder="64 hex characters">
+            <button type="button" id="entryFileBtn" class="ghost">Use file&hellip;</button>
+            <input type="file" id="entryFileInput" hidden>
+          </div>
+          <span id="entryFileStatus" class="muted"></span>
+        </label>
+        <label>Surtr version
+          <input type="text" id="f_version" placeholder="0.1.0" spellcheck="false">
+        </label>
+        <label>Date added
+          <input type="date" id="f_date">
+        </label>
+        <label>Nickname
+          <input type="text" id="f_nickname" placeholder="who made this build">
+        </label>
+        <label>Name
+          <input type="text" id="f_name" placeholder="build name">
+        </label>
+        <label class="full">Repository URL (optional)
+          <input type="text" id="f_repo" placeholder="https://github.com/..." spellcheck="false">
+        </label>
+        <label class="full">Note (optional)
+          <textarea id="f_note" rows="2" placeholder="what this build changes"></textarea>
+        </label>
+        <div class="full">
+          <span>Approved by (optional)</span>
+          <div class="row">
+            <input type="text" id="approverInput" placeholder="reviewer nickname">
+            <button type="button" id="addApproverBtn" class="ghost">Add</button>
+          </div>
+          <div id="approverList" class="chips"></div>
+        </div>
+      </div>
+      <div id="formErrors" class="errors" hidden></div>
+      <div class="row actions">
+        <button type="submit" id="saveBtn">Save entry</button>
+        <button type="button" id="cancelBtn" class="ghost">Cancel</button>
+      </div>
+    </form>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------------
+  // Registry source (edit here to point at the uploaded hashes.json).
+  //
+  // "./hashes.json" is correct once this repo is hosted (GitHub Pages): the page
+  // and hashes.json live in the same repo, so the relative path already resolves
+  // to the uploaded file. Keep it for normal use.
+  //
+  // If you want the page to also work when opened from somewhere else, add the
+  // raw link to the uploaded file as a fallback, for example:
+  //   "https://raw.githubusercontent.com/<user>/surtr-hashes/main/hashes.json"
+  //
+  // Each URL is tried in order until one loads; the first working source wins.
+  // ---------------------------------------------------------------------------
+  var REGISTRY_URLS = [
+    "./hashes.json"
+    // , "https://raw.githubusercontent.com/<user>/surtr-hashes/main/hashes.json"
+  ];
+  var registry = { schema: 1, entries: [] };
+  var editingIndex = null;
+  var approvers = [];
+
+  function $(id) { return document.getElementById(id); }
+
+  function normalizeHash(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/0x/g, "")
+      .replace(/[^0-9a-f]/g, "");
+  }
+
+  function today() {
+    var d = new Date();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return d.getFullYear() + "-" + m + "-" + day;
+  }
+
+  function parseVersion(value) {
+    return String(value || "").trim().split("-")[0].split("+")[0]
+      .split(".").map(function (p) { return parseInt(p, 10) || 0; });
+  }
+
+  function compareVersions(a, b) {
+    var pa = parseVersion(a), pb = parseVersion(b);
+    var len = Math.max(pa.length, pb.length);
+    for (var i = 0; i < len; i++) {
+      var diff = (pa[i] || 0) - (pb[i] || 0);
+      if (diff !== 0) return diff;
+    }
+    return 0;
+  }
+
+  function sortEntries() {
+    registry.entries.sort(function (a, b) {
+      var byVersion = compareVersions(a.surtr_version, b.surtr_version);
+      if (byVersion !== 0) return byVersion;
+      return String(a.date_added || "").localeCompare(String(b.date_added || ""));
+    });
+  }
+
+  function shortHash(hash) {
+    var h = normalizeHash(hash);
+    return h.length > 16 ? h.slice(0, 8) + "\u2026" + h.slice(-8) : h;
+  }
+
+  function joinApprovers(value) {
+    if (Array.isArray(value)) return value.join(", ");
+    return value == null ? "" : String(value);
+  }
+
+  /* ---------- registry loading ---------- */
+
+  function loadRegistry() {
+    $("meta").textContent = "Loading registry\u2026";
+    tryLoadUrl(0, null);
+  }
+
+  function tryLoadUrl(index, lastError) {
+    if (index >= REGISTRY_URLS.length) {
+      $("meta").textContent = friendlyLoadError(lastError);
+      return;
+    }
+    var url = REGISTRY_URLS[index];
+    var separator = url.indexOf("?") === -1 ? "?" : "&";
+    fetch(url + separator + "t=" + Date.now(), { cache: "no-store" })
+      .then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        registry = {
+          schema: (data && data.schema) || 1,
+          entries: Array.isArray(data && data.entries) ? data.entries.slice() : []
+        };
+        afterChange();
+      })
+      .catch(function (err) { tryLoadUrl(index + 1, err); });
+  }
+
+  function friendlyLoadError(err) {
+    var message = "Failed to load hashes.json: " + (err && err.message ? err.message : "unknown error");
+    if (location.protocol === "file:") {
+      message += " \u2014 this page is open from disk (file://), where browsers block fetch. " +
+        "Open the hosted page (GitHub Pages) or use \u201cLoad file\u2026\u201d.";
+    } else {
+      message += " \u2014 use \u201cLoad file\u2026\u201d to import it manually.";
+    }
+    return message;
+  }
+
+  function loadLocal(file) {
+    file.text().then(function (text) {
+      try {
+        var data = JSON.parse(text);
+        var entries = data && Array.isArray(data.entries) ? data.entries
+          : (Array.isArray(data) ? data : null);
+        if (!entries) throw new Error("no 'entries' array found");
+        registry = { schema: (data && data.schema) || 1, entries: entries.slice() };
+        afterChange();
+      } catch (err) {
+        $("meta").textContent = "Could not load file: " + err.message;
+      }
+    });
+  }
+
+  function afterChange() {
+    sortEntries();
+    renderMeta();
+    renderTable();
+    closeEditor();
+  }
+
+  /* ---------- rendering ---------- */
+
+  function renderMeta() {
+    var count = registry.entries.length;
+    var latest = "";
+    registry.entries.forEach(function (e) {
+      if (e.date_added && e.date_added > latest) latest = e.date_added;
+    });
+    var text = count + (count === 1 ? " known build" : " known builds");
+    if (latest) text += " \u00b7 last added " + latest;
+    $("meta").textContent = text;
+    $("empty").hidden = count !== 0;
+  }
+
+  function renderTable() {
+    var tbody = $("table").querySelector("tbody");
+    tbody.textContent = "";
+    registry.entries.forEach(function (entry, index) {
+      var tr = document.createElement("tr");
+      tr.appendChild(cell(entry.surtr_version));
+      tr.appendChild(cell(entry.name));
+      tr.appendChild(cell(entry.nickname));
+      tr.appendChild(cell(entry.date_added));
+      tr.appendChild(cell(joinApprovers(entry.approved_by)));
+      tr.appendChild(cell(entry.note || ""));
+      var hashCell = cell(shortHash(entry.sha256));
+      hashCell.className = "hash";
+      hashCell.title = normalizeHash(entry.sha256);
+      tr.appendChild(hashCell);
+
+      var actions = document.createElement("td");
+      actions.className = "actions";
+      var edit = document.createElement("button");
+      edit.type = "button"; edit.className = "ghost tiny"; edit.textContent = "Edit";
+      edit.addEventListener("click", function () { openEditor(index); });
+      var del = document.createElement("button");
+      del.type = "button"; del.className = "danger tiny"; del.textContent = "Delete";
+      del.addEventListener("click", function () { deleteEntry(index); });
+      actions.appendChild(edit);
+      actions.appendChild(del);
+      tr.appendChild(actions);
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  function cell(text) {
+    var td = document.createElement("td");
+    td.textContent = text == null ? "" : String(text);
+    return td;
+  }
+
+  /* ---------- verify ---------- */
+
+  function code(text) {
+    var el = document.createElement("code");
+    el.textContent = text;
+    return el;
+  }
+
+  function message(kind, text) {
+    var div = document.createElement("div");
+    div.className = "result " + kind;
+    var p = document.createElement("p");
+    p.textContent = text;
+    div.appendChild(p);
+    return div;
+  }
+
+  function addRow(dl, label, value, isLink) {
+    var dt = document.createElement("dt");
+    dt.textContent = label;
+    var dd = document.createElement("dd");
+    if (isLink && typeof value === "string" && /^https?:\/\//i.test(value)) {
+      var a = document.createElement("a");
+      a.href = value; a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = value;
+      dd.appendChild(a);
+    } else {
+      dd.textContent = value == null ? "" : String(value);
+    }
+    dl.appendChild(dt); dl.appendChild(dd);
+  }
+
+  function highlightHash(hash, query) {
+    var h = normalizeHash(hash);
+    var q = normalizeHash(query);
+    var frag = document.createDocumentFragment();
+    var at = q ? h.indexOf(q) : -1;
+    if (at === -1) {
+      frag.appendChild(document.createTextNode(h));
+      return frag;
+    }
+    frag.appendChild(document.createTextNode(h.slice(0, at)));
+    var mark = document.createElement("mark");
+    mark.textContent = h.slice(at, at + q.length);
+    frag.appendChild(mark);
+    frag.appendChild(document.createTextNode(h.slice(at + q.length)));
+    return frag;
+  }
+
+  function matchCard(entry, query) {
+    var wrap = document.createElement("div");
+    wrap.className = "match";
+
+    var head = document.createElement("div");
+    head.className = "matchHead";
+    var title = document.createElement("strong");
+    title.textContent = entry.name || "(unnamed)";
+    head.appendChild(title);
+    var by = document.createElement("span");
+    by.className = "muted";
+    by.textContent = " by " + (entry.nickname || "?") + " \u00b7 v" + (entry.surtr_version || "?");
+    head.appendChild(by);
+    wrap.appendChild(head);
+
+    var dl = document.createElement("dl");
+    addRow(dl, "Date added", entry.date_added);
+    addRow(dl, "Approved by", joinApprovers(entry.approved_by));
+    if (entry.note) addRow(dl, "Note", entry.note);
+    if (entry.repo_url) addRow(dl, "Repository", entry.repo_url, true);
+    wrap.appendChild(dl);
+
+    var hashEl = document.createElement("code");
+    hashEl.appendChild(highlightHash(entry.sha256, query));
+    wrap.appendChild(hashEl);
+    return wrap;
+  }
+
+  function renderMatches(query, sourceName) {
+    var box = $("result");
+    box.textContent = "";
+
+    if (sourceName) {
+      var f = document.createElement("div");
+      f.className = "muted";
+      f.textContent = "Selected file: " + sourceName;
+      box.appendChild(f);
+    }
+
+    var q = normalizeHash(query);
+    if (!q) return;
+
+    var matches = registry.entries.filter(function (e) {
+      return normalizeHash(e.sha256).indexOf(q) !== -1;
+    });
+
+    var exact = null;
+    if (q.length === 64) {
+      for (var i = 0; i < matches.length; i++) {
+        if (normalizeHash(matches[i].sha256) === q) { exact = matches[i]; break; }
+      }
+    }
+
+    if (exact) {
+      var known = message("known", "Known build");
+      var dl = document.createElement("dl");
+      addRow(dl, "Name", exact.name);
+      addRow(dl, "Author", exact.nickname);
+      addRow(dl, "Surtr version", exact.surtr_version);
+      addRow(dl, "Date added", exact.date_added);
+      addRow(dl, "Approved by", joinApprovers(exact.approved_by));
+      if (exact.note) addRow(dl, "Note", exact.note);
+      if (exact.repo_url) addRow(dl, "Repository", exact.repo_url, true);
+      known.appendChild(dl);
+      var hashEl = document.createElement("code");
+      hashEl.appendChild(highlightHash(exact.sha256, q));
+      known.appendChild(hashEl);
+      box.appendChild(known);
+      return;
+    }
+
+    if (!matches.length) {
+      if (q.length >= 64) {
+        var unknown = message("unknown", "Unknown hash \u2014 not present in the registry.");
+        unknown.appendChild(code(q));
+        box.appendChild(unknown);
+      } else {
+        box.appendChild(message("invalid", "No known build contains \u201c" + q + "\u201d."));
+      }
+      return;
+    }
+
+    var heading = document.createElement("div");
+    heading.className = "matchHeading";
+    heading.textContent = matches.length + (matches.length === 1 ? " matching build:" : " matching builds:");
+    box.appendChild(heading);
+    matches.forEach(function (entry) { box.appendChild(matchCard(entry, q)); });
+  }
+
+  function hashFile(file) {
+    if (!window.crypto || !window.crypto.subtle) {
+      return Promise.reject(new Error(
+        "Web Crypto is unavailable. Open this page over HTTPS (e.g. GitHub Pages) or from localhost."
+      ));
+    }
+    return file.arrayBuffer()
+      .then(function (buffer) { return window.crypto.subtle.digest("SHA-256", buffer); })
+      .then(function (digest) {
+        return Array.from(new Uint8Array(digest)).map(function (b) {
+          return b.toString(16).padStart(2, "0");
+        }).join("");
+      });
+  }
+
+  function check() {
+    renderMatches($("hashInput").value);
+  }
+
+  /* ---------- editor ---------- */
+
+  function renderApprovers() {
+    var list = $("approverList");
+    list.textContent = "";
+    if (!approvers.length) {
+      var s = document.createElement("span");
+      s.className = "muted"; s.textContent = "no reviewers yet";
+      list.appendChild(s);
+      return;
+    }
+    approvers.forEach(function (name, i) {
+      var chip = document.createElement("span");
+      chip.className = "chip";
+      chip.appendChild(document.createTextNode(name));
+      var rm = document.createElement("button");
+      rm.type = "button"; rm.textContent = "\u00d7"; rm.title = "Remove";
+      rm.addEventListener("click", function () { approvers.splice(i, 1); renderApprovers(); });
+      chip.appendChild(rm);
+      list.appendChild(chip);
+    });
+  }
+
+  function addApprover() {
+    var v = $("approverInput").value.trim();
+    if (!v) return;
+    if (approvers.indexOf(v) === -1) approvers.push(v);
+    $("approverInput").value = "";
+    renderApprovers();
+  }
+
+  function openEditor(index) {
+    editingIndex = (index == null) ? null : index;
+    var e = (index == null) ? null : registry.entries[index];
+    $("editorCard").hidden = false;
+    $("editorTitle").textContent = (index == null) ? "New entry" : "Edit entry";
+    $("f_sha256").value = e ? (e.sha256 || "") : "";
+    $("f_version").value = e ? (e.surtr_version || "") : "";
+    $("f_nickname").value = e ? (e.nickname || "") : "";
+    $("f_name").value = e ? (e.name || "") : "";
+    $("f_date").value = e ? (e.date_added || today()) : today();
+    $("f_repo").value = e ? (e.repo_url || "") : "";
+    $("f_note").value = e ? (e.note || "") : "";
+    $("entryFileStatus").textContent = "";
+    if (e && e.approved_by) {
+      approvers = Array.isArray(e.approved_by) ? e.approved_by.slice() : [e.approved_by];
+    } else {
+      approvers = [];
+    }
+    renderApprovers();
+    clearErrors();
+    $("editorCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function closeEditor() {
+    editingIndex = null;
+    $("editorCard").hidden = true;
+    clearErrors();
+  }
+
+  function showErrors(list) {
+    var box = $("formErrors");
+    box.textContent = "";
+    var p = document.createElement("strong");
+    p.textContent = "Please fix the following:";
+    box.appendChild(p);
+    var ul = document.createElement("ul");
+    list.forEach(function (msg) {
+      var li = document.createElement("li");
+      li.textContent = msg;
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    box.hidden = false;
+  }
+
+  function clearErrors() {
+    $("formErrors").hidden = true;
+    $("formErrors").textContent = "";
+  }
+
+  function validateEntry(entry, index) {
+    var errs = [];
+    if (!/^[0-9a-f]{64}$/.test(entry.sha256)) errs.push("SHA-256 must be 64 lowercase hex characters.");
+    if (!/^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]+)?$/.test(entry.surtr_version)) errs.push("Surtr version must look like 0.1.0.");
+    if (!entry.nickname) errs.push("Nickname is required.");
+    if (!entry.name) errs.push("Name is required.");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(entry.date_added)) errs.push("Date added is required (YYYY-MM-DD).");
+    if (entry.repo_url && !/^https?:\/\//i.test(entry.repo_url)) errs.push("Repository URL must start with http(s)://.");
+    for (var i = 0; i < registry.entries.length; i++) {
+      if (i === index) continue;
+      if (normalizeHash(registry.entries[i].sha256) === entry.sha256) {
+        errs.push("This SHA-256 is already in the registry (row " + (i + 1) + ").");
+        break;
+      }
+    }
+    return errs;
+  }
+
+  function saveForm(event) {
+    event.preventDefault();
+    var entry = {
+      sha256: normalizeHash($("f_sha256").value),
+      surtr_version: $("f_version").value.trim(),
+      nickname: $("f_nickname").value.trim(),
+      name: $("f_name").value.trim()
+    };
+    var note = $("f_note").value.trim();
+    if (note) entry.note = note;
+    var repo = $("f_repo").value.trim();
+    if (repo) entry.repo_url = repo;
+    entry.date_added = $("f_date").value.trim();
+    entry.approved_by = approvers.length ? approvers.slice() : "";
+
+    var errs = validateEntry(entry, editingIndex);
+    if (errs.length) { showErrors(errs); return; }
+
+    if (editingIndex == null) registry.entries.push(entry);
+    else registry.entries[editingIndex] = entry;
+
+    afterChange();
+    $("editorCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function deleteEntry(index) {
+    var e = registry.entries[index];
+    if (!window.confirm("Delete this entry?\n\n" + (e.name || "") + " \u2014 " + normalizeHash(e.sha256))) return;
+    registry.entries.splice(index, 1);
+    if (editingIndex === index) editingIndex = null;
+    else if (editingIndex != null && editingIndex > index) editingIndex--;
+    renderMeta();
+    renderTable();
+    $("editorCard").hidden = true;
+  }
+
+  /* ---------- export ---------- */
+
+  function currentJSON() {
+    return JSON.stringify(registry, null, 2) + "\n";
+  }
+
+  function downloadJSON() {
+    var blob = new Blob([currentJSON()], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "hashes.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function copyJSON() {
+    var text = currentJSON();
+    var done = function () { flashButton("copyBtn", "Copied!"); };
+    var fail = function () { flashButton("copyBtn", "Copy failed"); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fail);
+    } else {
+      fail();
+    }
+  }
+
+  function flashButton(id, text) {
+    var btn = $(id);
+    var original = btn.textContent;
+    btn.textContent = text;
+    setTimeout(function () { btn.textContent = original; }, 1400);
+  }
+
+  /* ---------- events ---------- */
+
+  $("checkBtn").addEventListener("click", check);
+  $("hashInput").addEventListener("input", function () { renderMatches(this.value); });
+  $("hashInput").addEventListener("keydown", function (e) { if (e.key === "Enter") check(); });
+
+  $("fileInput").addEventListener("change", function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    $("hashInput").value = "";
+    $("result").textContent = "";
+    hashFile(file)
+      .then(function (hash) {
+        $("hashInput").value = hash;
+        renderMatches(hash, file.name);
+      })
+      .catch(function (err) { $("result").appendChild(message("invalid", err.message)); });
+  });
+
+  $("reloadBtn").addEventListener("click", loadRegistry);
+  $("newBtn").addEventListener("click", function () { openEditor(null); });
+  $("loadBtn").addEventListener("click", function () { $("loadFileInput").click(); });
+  $("loadFileInput").addEventListener("change", function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (file) loadLocal(file);
+    e.target.value = "";
+  });
+  $("downloadBtn").addEventListener("click", downloadJSON);
+  $("copyBtn").addEventListener("click", copyJSON);
+
+  $("entryFileBtn").addEventListener("click", function () { $("entryFileInput").click(); });
+  $("entryFileInput").addEventListener("change", function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    hashFile(file)
+      .then(function (hash) {
+        $("f_sha256").value = hash;
+        $("entryFileStatus").textContent = "Hashed " + file.name;
+      })
+      .catch(function (err) { $("entryFileStatus").textContent = err.message; });
+    e.target.value = "";
+  });
+
+  $("addApproverBtn").addEventListener("click", addApprover);
+  $("approverInput").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); addApprover(); }
+  });
+
+  $("entryForm").addEventListener("submit", saveForm);
+  $("cancelBtn").addEventListener("click", closeEditor);
+
+  loadRegistry();
+})();
+</script>
+</body>
+</html>
