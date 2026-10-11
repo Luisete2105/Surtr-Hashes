@@ -1,4 +1,25 @@
 {
   "schema": 1,
-  "entries": []
+  "entries": [
+    {
+      "sha256": "4ae1e94b207fa3ccc5acc58e0e5e3a8632c0a3b8e5b99685fc778fd66adea7ca",
+      "surtr_version": "0.1.0",
+      "nickname": "luisete2105",
+      "name": "vanilla",
+      "note": "None",
+      "repo_url": "https://github.com/Luisete2105/Bo3-Surtr",
+      "date_added": "2026-10-11",
+      "approved_by": ""
+    },
+    {
+      "sha256": "b1097472132b380a6fdd40b2e4cbf6ffe31b0d8180b215b20075b6524af380d2",
+      "surtr_version": "0.1.0",
+      "nickname": "luisete2105",
+      "name": "vanilla getkey",
+      "note": "None",
+      "repo_url": "https://github.com/Luisete2105/Bo3-Surtr",
+      "date_added": "2026-10-11",
+      "approved_by": ""
+    }
+  ]
 }
