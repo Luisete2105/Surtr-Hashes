@@ -20,6 +20,26 @@
       "repo_url": "https://github.com/Luisete2105/Bo3-Surtr",
       "date_added": "2026-10-11",
       "approved_by": ""
+    },
+    {
+      "sha256": "7d4c9fa7b64ea761ca6b0d3b0a2101eb75e7fc1542a3bc99776005983ab1289a",
+      "surtr_version": "0.1.1",
+      "nickname": "luisete2105",
+      "name": "vanilla",
+      "note": "None",
+      "repo_url": "https://github.com/Luisete2105/Bo3-Surtr",
+      "date_added": "2026-10-16",
+      "approved_by": ""
+    },
+    {
+      "sha256": "856906e77aaf35c02ece09176d489f642d62cd955918a2aacdd6a9c93ed93487",
+      "surtr_version": "0.1.1",
+      "nickname": "luisete2105",
+      "name": "vanilla getkey",
+      "note": "None",
+      "repo_url": "https://github.com/Luisete2105/Bo3-Surtr",
+      "date_added": "2026-10-16",
+      "approved_by": ""
     }
   ]
 }
